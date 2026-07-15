@@ -892,36 +892,6 @@ onMounted(() => {
             </div>
           </section>
 
-          <aside class="judge-wall panel">
-            <p class="eyebrow">Interactive judge moments</p>
-            <h2>Use these prompts live</h2>
-            <div class="prompt-list">
-              <button @click="statusMessage = 'Judge prompt: Which matters more for this payment: lowest fee, fastest settlement, or highest approval probability?'">
-                Tradeoff question
-              </button>
-              <button @click="statusMessage = 'Judge prompt: Watch what happens when the preferred provider becomes unavailable.'">
-                Outage tease
-              </button>
-              <button @click="statusMessage = 'Judge prompt: This is where duplicate-charge prevention and balance controls protect trust.'">
-                Risk question
-              </button>
-            </div>
-
-            <div class="mini-scoreboard">
-              <div>
-                <span>Health</span>
-                <strong>{{ providerHealth }}%</strong>
-              </div>
-              <div>
-                <span>Approval</span>
-                <strong>{{ approvalRate }}%</strong>
-              </div>
-              <div>
-                <span>Latency</span>
-                <strong>{{ averageLatency }} ms</strong>
-              </div>
-            </div>
-          </aside>
         </section>
       </template>
 

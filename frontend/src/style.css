@@ -108,13 +108,12 @@ select:focus {
 }
 
 .app-shell.presenter-fullscreen .presenter-stage {
-  grid-template-columns: minmax(250px, 0.55fr) minmax(0, 1.6fr) minmax(300px, 0.72fr);
+  grid-template-columns: minmax(250px, 0.42fr) minmax(0, 1.58fr);
   min-height: calc(100vh - 32px);
 }
 
 .app-shell.presenter-fullscreen .runway,
-.app-shell.presenter-fullscreen .presenter-card,
-.app-shell.presenter-fullscreen .judge-wall {
+.app-shell.presenter-fullscreen .presenter-card {
   min-height: calc(100vh - 32px);
 }
 
@@ -372,14 +371,13 @@ main {
 
 .presenter-stage {
   display: grid;
-  grid-template-columns: minmax(230px, 0.55fr) minmax(0, 1.45fr) minmax(280px, 0.7fr);
+  grid-template-columns: minmax(230px, 0.42fr) minmax(0, 1.58fr);
   gap: 18px;
   align-items: stretch;
 }
 
 .runway,
-.presenter-card,
-.judge-wall {
+.presenter-card {
   min-height: 560px;
 }
 
@@ -404,7 +402,6 @@ main {
 .slide-count,
 .evidence-card span,
 .talk-track span,
-.mini-scoreboard span,
 .interaction-copy span,
 .route-detail span,
 .weight-panel span,
@@ -774,46 +771,6 @@ main {
   font-size: 1rem;
 }
 
-.judge-wall {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-}
-
-.prompt-list {
-  display: grid;
-  gap: 10px;
-}
-
-.prompt-list button {
-  min-height: 58px;
-  padding: 10px 12px;
-  text-align: left;
-}
-
-.mini-scoreboard {
-  display: grid;
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid #d9e1ec;
-  border-radius: 8px;
-  background: #d9e1ec;
-}
-
-.mini-scoreboard div {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: center;
-  background: #ffffff;
-  padding: 12px;
-}
-
-.mini-scoreboard strong {
-  color: #14213d;
-  font-size: 1.05rem;
-}
-
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.7fr);
@@ -1150,8 +1107,7 @@ pre {
   }
 
   .runway,
-  .presenter-card,
-  .judge-wall {
+  .presenter-card {
     min-height: auto;
   }
 
