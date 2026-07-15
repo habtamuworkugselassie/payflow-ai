@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { api } from './api'
 
 type User = { id: string; name: string; phoneNumber: string; role: string }
@@ -71,7 +71,11 @@ const receiverAccounts = ref<Account[]>([])
 const result = ref<Payment | null>(null)
 const busy = ref(false)
 const statusMessage = ref('Load the judge demo to create a ready-made merchant checkout scenario.')
-const activePanel = ref<'showcase' | 'builder'>('showcase')
+const activePanel = ref<'presenter' | 'showcase' | 'builder'>('presenter')
+const activeSlide = ref(0)
+const elapsedSeconds = ref(0)
+const timerRunning = ref(false)
+const timerHandle = ref<number | null>(null)
 
 const userForm = reactive({ name: '', phoneNumber: '', role: 'INDIVIDUAL' })
 const selectedAccountOwner = ref('')
@@ -143,6 +147,60 @@ const impactCards = computed(() => [
     detail: 'idempotency, funds, verified accounts, provider health'
   }
 ])
+const presenterSlides = [
+  {
+    minute: '0:00',
+    title: 'Open with the pain',
+    prompt: 'Ask: What happens to a merchant when one payment rail silently slows down during peak checkout?',
+    proof: 'Fragmented rails create failed payments, manual switching, and poor visibility.',
+    actionLabel: 'Load the live scenario',
+    action: 'load-demo',
+    presenterNote: 'Introduce Aster Buna Merchant and Dawit Customer. This is not a mock slide; it creates users and linked accounts through the API.'
+  },
+  {
+    minute: '1:00',
+    title: 'Show intelligent routing',
+    prompt: 'Ask: Should the customer choose the rail, or should the gateway choose the best path automatically?',
+    proof: 'PayFlow scores source account, route provider, settlement account, success probability, health, cost, and latency.',
+    actionLabel: 'Run smart route',
+    action: 'smart-route',
+    presenterNote: 'Point to the winning corridor, score bars, and selected path. Explain why the top route won.'
+  },
+  {
+    minute: '2:10',
+    title: 'Break a provider live',
+    prompt: 'Ask: What should happen if the best provider goes down after checkout starts?',
+    proof: 'Unavailable providers are excluded and the payment retries across eligible alternatives.',
+    actionLabel: 'Trigger outage and reroute',
+    action: 'outage',
+    presenterNote: 'Click once, then show provider health and attempts. This is the resilience moment judges remember.'
+  },
+  {
+    minute: '3:20',
+    title: 'Prove risk controls',
+    prompt: 'Ask: How do we avoid duplicate charges and spending the same balance twice?',
+    proof: 'The gateway enforces idempotency, verified accounts, balance checks, debit-on-success, and provider health gates.',
+    actionLabel: 'Restore rails',
+    action: 'restore',
+    presenterNote: 'Connect the safeguards to trust, compliance readiness, and production viability.'
+  },
+  {
+    minute: '4:20',
+    title: 'Close with impact',
+    prompt: 'Ask: Where does this create value for banks, wallets, gateways, and merchants?',
+    proof: 'Higher approvals, lower cost routing, faster outage recovery, and API-first integration across payment ecosystems.',
+    actionLabel: 'Show impact',
+    action: 'impact',
+    presenterNote: 'End on business value: PayFlow is a routing intelligence layer, not just another checkout button.'
+  }
+] as const
+const currentSlide = computed(() => presenterSlides[activeSlide.value])
+const presentationProgress = computed(() => Math.round(((activeSlide.value + 1) / presenterSlides.length) * 100))
+const formattedElapsed = computed(() => {
+  const minutes = Math.floor(elapsedSeconds.value / 60).toString()
+  const seconds = (elapsedSeconds.value % 60).toString().padStart(2, '0')
+  return `${minutes}:${seconds}`
+})
 
 async function loadAll() {
   const [u, p, tx] = await Promise.all([
@@ -332,6 +390,53 @@ async function restoreProviderHealth() {
   }
 }
 
+function startPresentation() {
+  activePanel.value = 'presenter'
+  activeSlide.value = 0
+  elapsedSeconds.value = 0
+  timerRunning.value = true
+  if (timerHandle.value !== null) window.clearInterval(timerHandle.value)
+  timerHandle.value = window.setInterval(() => {
+    elapsedSeconds.value += 1
+  }, 1000)
+}
+
+function toggleTimer() {
+  if (timerRunning.value) {
+    timerRunning.value = false
+    if (timerHandle.value !== null) window.clearInterval(timerHandle.value)
+    timerHandle.value = null
+    return
+  }
+  timerRunning.value = true
+  timerHandle.value = window.setInterval(() => {
+    elapsedSeconds.value += 1
+  }, 1000)
+}
+
+function resetPresentation() {
+  activeSlide.value = 0
+  elapsedSeconds.value = 0
+  statusMessage.value = 'Presenter mode reset. Start with the merchant pain, then load the live demo.'
+}
+
+function nextSlide() {
+  activeSlide.value = Math.min(activeSlide.value + 1, presenterSlides.length - 1)
+}
+
+function previousSlide() {
+  activeSlide.value = Math.max(activeSlide.value - 1, 0)
+}
+
+async function runPresenterAction() {
+  const action = currentSlide.value.action
+  if (action === 'load-demo') await loadJudgeDemo()
+  if (action === 'smart-route') await runSmartRoute()
+  if (action === 'outage') await simulateOutageAndReroute()
+  if (action === 'restore') await restoreProviderHealth()
+  if (action === 'impact') statusMessage.value = 'Close on impact: higher approvals, resilient checkout, API-first orchestration, and safer settlement.'
+}
+
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`
 }
@@ -349,6 +454,10 @@ function providerModeClass(mode: string) {
   return mode.toLowerCase()
 }
 
+onUnmounted(() => {
+  if (timerHandle.value !== null) window.clearInterval(timerHandle.value)
+})
+
 onMounted(loadAll)
 </script>
 
@@ -363,7 +472,8 @@ onMounted(loadAll)
           provider health, success probability, cost, latency, account eligibility, and automatic failover.
         </p>
         <div class="hero-actions">
-          <button class="primary" :disabled="busy" @click="loadJudgeDemo">Load judge demo</button>
+          <button class="primary" :disabled="busy" @click="startPresentation">Start 5-minute pitch</button>
+          <button :disabled="busy" @click="loadJudgeDemo">Load judge demo</button>
           <button :disabled="busy" @click="runSmartRoute">Run smart route</button>
           <button :disabled="busy" @click="simulateOutageAndReroute">Simulate outage</button>
         </div>
@@ -379,6 +489,7 @@ onMounted(loadAll)
             <span>{{ provider.code }}</span>
             <strong>{{ provider.mode }}</strong>
           </div>
+          <div class="payment-pulse" :class="{ active: busy || latestPayment }"></div>
         </div>
         <div class="route-node destination">
           <span>Merchant</span>
@@ -408,11 +519,129 @@ onMounted(loadAll)
       </section>
 
       <nav class="tabs" aria-label="Demo views">
+        <button :class="{ active: activePanel === 'presenter' }" @click="activePanel = 'presenter'">Presenter</button>
         <button :class="{ active: activePanel === 'showcase' }" @click="activePanel = 'showcase'">Showcase</button>
         <button :class="{ active: activePanel === 'builder' }" @click="activePanel = 'builder'">API builder</button>
       </nav>
 
-      <template v-if="activePanel === 'showcase'">
+      <template v-if="activePanel === 'presenter'">
+        <section class="presenter-stage">
+          <aside class="runway panel">
+            <div class="timer-card">
+              <span>Pitch timer</span>
+              <strong>{{ formattedElapsed }}</strong>
+              <div class="timer-actions">
+                <button class="small" @click="toggleTimer">{{ timerRunning ? 'Pause' : 'Resume' }}</button>
+                <button class="small" @click="resetPresentation">Reset</button>
+              </div>
+            </div>
+
+            <div class="progress-track">
+              <span :style="{ width: `${presentationProgress}%` }"></span>
+            </div>
+
+            <button
+              v-for="(slide, index) in presenterSlides"
+              :key="slide.title"
+              class="runway-step"
+              :class="{ active: activeSlide === index, done: activeSlide > index }"
+              @click="activeSlide = index"
+            >
+              <span>{{ slide.minute }}</span>
+              <strong>{{ slide.title }}</strong>
+            </button>
+          </aside>
+
+          <section class="presenter-card panel">
+            <div class="panel-heading presenter-heading">
+              <div>
+                <p class="eyebrow">5-minute presenter mode</p>
+                <h2>{{ currentSlide.title }}</h2>
+              </div>
+              <span class="slide-count">Step {{ activeSlide + 1 }} / {{ presenterSlides.length }}</span>
+            </div>
+
+            <div class="talk-track">
+              <article>
+                <span>Ask the judges</span>
+                <strong>{{ currentSlide.prompt }}</strong>
+              </article>
+              <article>
+                <span>Evidence to show</span>
+                <strong>{{ currentSlide.proof }}</strong>
+              </article>
+              <article>
+                <span>Your presenter note</span>
+                <strong>{{ currentSlide.presenterNote }}</strong>
+              </article>
+            </div>
+
+            <div class="presenter-actions">
+              <button @click="previousSlide" :disabled="activeSlide === 0">Previous</button>
+              <button class="primary" :disabled="busy" @click="runPresenterAction">{{ currentSlide.actionLabel }}</button>
+              <button @click="nextSlide" :disabled="activeSlide === presenterSlides.length - 1">Next</button>
+            </div>
+
+            <div class="demo-evidence">
+              <article class="evidence-card">
+                <span>Current route</span>
+                <strong>
+                  <template v-if="selectedCandidate">
+                    {{ selectedCandidate.sourceProvider }} → {{ selectedCandidate.routeProvider }} → {{ selectedCandidate.destinationProvider }}
+                  </template>
+                  <template v-else>Not scored yet</template>
+                </strong>
+                <small>{{ selectedCandidate ? `${Math.round(selectedCandidate.finalScore * 100)}/100 route score` : 'Run Smart Route during step 2.' }}</small>
+              </article>
+
+              <article class="evidence-card">
+                <span>Outage pressure</span>
+                <strong>{{ activeOutages }} active issue{{ activeOutages === 1 ? '' : 's' }}</strong>
+                <small>{{ activeOutages ? 'Provider health is degrading live.' : 'All route providers are healthy.' }}</small>
+              </article>
+
+              <article class="evidence-card">
+                <span>Attempts</span>
+                <strong>{{ latestPayment?.attempts.length ?? 0 }}</strong>
+                <small>{{ latestPayment ? latestPayment.status : 'No payment processed yet.' }}</small>
+              </article>
+            </div>
+          </section>
+
+          <aside class="judge-wall panel">
+            <p class="eyebrow">Interactive judge moments</p>
+            <h2>Use these prompts live</h2>
+            <div class="prompt-list">
+              <button @click="statusMessage = 'Judge prompt: Which matters more for this payment: lowest fee, fastest settlement, or highest approval probability?'">
+                Tradeoff question
+              </button>
+              <button @click="statusMessage = 'Judge prompt: Watch what happens when the preferred provider becomes unavailable.'">
+                Outage tease
+              </button>
+              <button @click="statusMessage = 'Judge prompt: This is where duplicate-charge prevention and balance controls protect trust.'">
+                Risk question
+              </button>
+            </div>
+
+            <div class="mini-scoreboard">
+              <div>
+                <span>Health</span>
+                <strong>{{ providerHealth }}%</strong>
+              </div>
+              <div>
+                <span>Approval</span>
+                <strong>{{ approvalRate }}%</strong>
+              </div>
+              <div>
+                <span>Latency</span>
+                <strong>{{ averageLatency }} ms</strong>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </template>
+
+      <template v-else-if="activePanel === 'showcase'">
         <section class="layout">
           <div class="primary-column">
             <section class="panel decision-panel">
