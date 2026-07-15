@@ -50,6 +50,26 @@ public class AccountService {
         return account;
     }
 
+    public LinkedAccount debit(String id, double amount) {
+        return accounts.compute(id, (accountId, existing) -> {
+            if (existing == null) throw new NoSuchElementException("Account not found: " + accountId);
+            if (existing.availableBalance() < amount) throw new IllegalArgumentException("Insufficient funds");
+            return new LinkedAccount(
+                existing.id(),
+                existing.ownerId(),
+                existing.provider(),
+                existing.accountType(),
+                existing.accountAlias(),
+                existing.maskedReference(),
+                existing.availableBalance() - amount,
+                existing.verified(),
+                existing.smartPayEnabled(),
+                existing.smartSettlementEnabled(),
+                existing.createdAt()
+            );
+        });
+    }
+
     private String mask(String reference) {
         String clean = reference.trim();
         if (clean.length() <= 4) return "****";

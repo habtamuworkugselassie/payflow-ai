@@ -11,19 +11,23 @@ public class PaymentService {
     private final CorridorRoutingService routing;
     private final ProviderRegistry providers;
     private final ProviderSimulator simulator;
+    private final AccountService accountService;
     private final Map<String, SmartPayment> payments = new ConcurrentHashMap<>();
     private final Map<String, String> idempotency = new ConcurrentHashMap<>();
 
-    public PaymentService(CorridorRoutingService routing, ProviderRegistry providers, ProviderSimulator simulator) {
+    public PaymentService(CorridorRoutingService routing, ProviderRegistry providers, ProviderSimulator simulator, AccountService accountService) {
         this.routing = routing;
         this.providers = providers;
         this.simulator = simulator;
+        this.accountService = accountService;
     }
 
     public SmartPayment create(SmartPaymentRequest request, String key) {
-        String existing = idempotency.get(key);
-        if (existing != null) return payments.get(existing);
+        String paymentId = idempotency.computeIfAbsent(key, ignored -> createPayment(request, key).id());
+        return payments.get(paymentId);
+    }
 
+    private SmartPayment createPayment(SmartPaymentRequest request, String key) {
         String id = "pay_" + UUID.randomUUID().toString().replace("-","").substring(0,10);
         Set<String> excluded = new HashSet<>();
         List<PaymentAttempt> attempts = new ArrayList<>();
@@ -46,6 +50,7 @@ public class PaymentService {
 
             if (result.success()) {
                 status = PaymentStatus.SUCCEEDED;
+                accountService.debit(selected.sourceAccountId(), request.amount().doubleValue());
                 break;
             }
             excluded.add(selected.routeProvider());
@@ -61,7 +66,6 @@ public class PaymentService {
         );
 
         payments.put(id, payment);
-        idempotency.put(key, id);
         return payment;
     }
 
