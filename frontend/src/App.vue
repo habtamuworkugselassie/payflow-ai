@@ -79,6 +79,7 @@ const timerHandle = ref<number | null>(null)
 const baselineRoute = ref('Not captured yet')
 const outageRoute = ref('Not captured yet')
 const routingLens = ref<'Balanced' | 'Approval' | 'Cost' | 'Latency'>('Balanced')
+const isFullscreen = ref(false)
 
 const userForm = reactive({ name: '', phoneNumber: '', role: 'INDIVIDUAL' })
 const selectedAccountOwner = ref('')
@@ -447,6 +448,22 @@ function toggleTimer() {
   }, 1000)
 }
 
+async function toggleFullscreen() {
+  activePanel.value = 'presenter'
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+      isFullscreen.value = false
+      return
+    }
+
+    await document.documentElement.requestFullscreen()
+    isFullscreen.value = true
+  } catch {
+    isFullscreen.value = !isFullscreen.value
+  }
+}
+
 function resetPresentation() {
   activeSlide.value = 0
   elapsedSeconds.value = 0
@@ -502,15 +519,23 @@ function providerModeClass(mode: string) {
   return mode.toLowerCase()
 }
 
+function syncFullscreenState() {
+  isFullscreen.value = Boolean(document.fullscreenElement)
+}
+
 onUnmounted(() => {
   if (timerHandle.value !== null) window.clearInterval(timerHandle.value)
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
 })
 
-onMounted(loadAll)
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreenState)
+  loadAll()
+})
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'presenter-fullscreen': isFullscreen && activePanel === 'presenter' }">
     <header class="hero">
       <div>
         <p class="eyebrow">Kifiya Inspire Hackathon V4 2026 · Intelligent Payment Routing</p>
@@ -581,6 +606,7 @@ onMounted(loadAll)
               <div class="timer-actions">
                 <button class="small" @click="toggleTimer">{{ timerRunning ? 'Pause' : 'Resume' }}</button>
                 <button class="small" @click="resetPresentation">Reset</button>
+                <button class="small" @click="toggleFullscreen">{{ isFullscreen ? 'Exit full screen' : 'Full screen' }}</button>
               </div>
             </div>
 

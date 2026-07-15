@@ -82,6 +82,51 @@ select:focus {
   min-height: 100vh;
 }
 
+.app-shell.presenter-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+  background:
+    linear-gradient(180deg, rgba(245, 247, 251, 0.94), #f5f7fb 340px),
+    linear-gradient(135deg, #d9f2e6 0%, #eef2f8 45%, #f8ead7 100%);
+}
+
+.app-shell.presenter-fullscreen .hero {
+  display: none;
+}
+
+.app-shell.presenter-fullscreen main {
+  width: min(1760px, calc(100% - 32px));
+  min-height: 100vh;
+  padding-top: 16px;
+}
+
+.app-shell.presenter-fullscreen .status-strip,
+.app-shell.presenter-fullscreen .tabs {
+  display: none;
+}
+
+.app-shell.presenter-fullscreen .presenter-stage {
+  grid-template-columns: minmax(250px, 0.55fr) minmax(0, 1.6fr) minmax(300px, 0.72fr);
+  min-height: calc(100vh - 32px);
+}
+
+.app-shell.presenter-fullscreen .runway,
+.app-shell.presenter-fullscreen .presenter-card,
+.app-shell.presenter-fullscreen .judge-wall {
+  min-height: calc(100vh - 32px);
+}
+
+.app-shell.presenter-fullscreen .talk-track strong {
+  font-size: clamp(1.2rem, 2.1vw, 1.6rem);
+}
+
+.app-shell:fullscreen {
+  overflow: auto;
+  background: #f5f7fb;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
@@ -374,7 +419,7 @@ main {
 
 .timer-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
