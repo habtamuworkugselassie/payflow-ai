@@ -62,6 +62,7 @@ type Payment = {
   candidates: Candidate[]
   createdAt: string
 }
+type RouteNodeId = 'source' | 'scoring' | 'ranking' | 'settlement' | 'execution'
 
 const users = ref<User[]>([])
 const providers = ref<Provider[]>([])
@@ -79,6 +80,7 @@ const timerHandle = ref<number | null>(null)
 const baselineRoute = ref('Not captured yet')
 const outageRoute = ref('Not captured yet')
 const routingLens = ref<'Balanced' | 'Approval' | 'Cost' | 'Latency'>('Balanced')
+const activeRoutingNode = ref<RouteNodeId>('scoring')
 const isFullscreen = ref(false)
 
 const userForm = reactive({ name: '', phoneNumber: '', role: 'INDIVIDUAL' })
@@ -204,6 +206,120 @@ const formattedElapsed = computed(() => {
   const minutes = Math.floor(elapsedSeconds.value / 60).toString()
   const seconds = (elapsedSeconds.value % 60).toString().padStart(2, '0')
   return `${minutes}:${seconds}`
+})
+const routingNodes = computed(() => [
+  {
+    id: 'source' as RouteNodeId,
+    label: 'Funding',
+    title: selectedCandidate.value?.sourceProvider ?? 'Customer accounts',
+    meta: `${senderAccounts.value.length || 3} eligible rails`,
+    status: selectedCandidate.value ? 'selected' : 'ready'
+  },
+  {
+    id: 'scoring' as RouteNodeId,
+    label: 'AI scoring',
+    title: routingLens.value,
+    meta: 'multi-factor model',
+    status: busy.value ? 'active' : 'ready'
+  },
+  {
+    id: 'ranking' as RouteNodeId,
+    label: 'Provider',
+    title: selectedCandidate.value?.routeProvider ?? 'Ranked routes',
+    meta: activeOutages.value ? `${activeOutages.value} issue detected` : 'healthy network',
+    status: activeOutages.value ? 'warning' : 'ready'
+  },
+  {
+    id: 'settlement' as RouteNodeId,
+    label: 'Settlement',
+    title: selectedCandidate.value?.destinationProvider ?? 'Merchant accounts',
+    meta: `${receiverAccounts.value.length || 2} settlement rails`,
+    status: selectedCandidate.value ? 'selected' : 'ready'
+  },
+  {
+    id: 'execution' as RouteNodeId,
+    label: 'Execution',
+    title: latestPayment.value?.status ?? 'Awaiting payment',
+    meta: `${latestPayment.value?.attempts.length ?? 0} attempt${latestPayment.value?.attempts.length === 1 ? '' : 's'}`,
+    status: latestPayment.value?.status === 'SUCCEEDED' ? 'selected' : 'ready'
+  }
+])
+const routingWeights = computed(() => {
+  const presets = {
+    Balanced: [
+      ['Success', 35],
+      ['Health', 25],
+      ['Cost', 20],
+      ['Latency', 15],
+      ['Affinity', 5]
+    ],
+    Approval: [
+      ['Success', 46],
+      ['Health', 28],
+      ['Cost', 10],
+      ['Latency', 10],
+      ['Affinity', 6]
+    ],
+    Cost: [
+      ['Success', 26],
+      ['Health', 18],
+      ['Cost', 38],
+      ['Latency', 12],
+      ['Affinity', 6]
+    ],
+    Latency: [
+      ['Success', 28],
+      ['Health', 18],
+      ['Cost', 14],
+      ['Latency', 34],
+      ['Affinity', 6]
+    ]
+  } satisfies Record<typeof routingLens.value, Array<[string, number]>>
+  return presets[routingLens.value]
+})
+const activeRoutingDetail = computed(() => {
+  const candidate = selectedCandidate.value
+  if (activeRoutingNode.value === 'source') {
+    return {
+      title: 'Funding rail selection',
+      body: candidate
+        ? `${candidate.sourceProvider} was selected from ${senderAccounts.value.length} customer rails because it was verified, fundable, and eligible for Smart Pay.`
+        : 'PayFlow first filters customer accounts by verification, Smart Pay eligibility, and available balance.',
+      metric: candidate ? `${accountName(candidate.sourceAccountId)}` : `${senderAccounts.value.length || 3} candidate accounts`
+    }
+  }
+  if (activeRoutingNode.value === 'scoring') {
+    return {
+      title: 'Decision model',
+      body: `The ${routingLens.value} lens changes what you emphasize in the pitch while the engine still balances success probability, health, cost, latency, and account affinity.`,
+      metric: `${routingWeights.value[0][0]} ${routingWeights.value[0][1]}%`
+    }
+  }
+  if (activeRoutingNode.value === 'ranking') {
+    return {
+      title: 'Provider ranking',
+      body: candidate
+        ? `${candidate.routeProvider} is leading with ${Math.round(candidate.finalScore * 100)}/100 after unavailable providers are excluded.`
+        : 'Run Smart Route to rank providers and highlight the winning rail.',
+      metric: candidate ? `${Math.round(candidate.successProbability * 100)}% approval probability` : `${providers.value.length || 3} providers`
+    }
+  }
+  if (activeRoutingNode.value === 'settlement') {
+    return {
+      title: 'Smart settlement',
+      body: candidate
+        ? `${candidate.destinationProvider} is selected as the receiver-side settlement account for this corridor.`
+        : 'The receiver can link multiple settlement rails and let PayFlow choose the best destination.',
+      metric: candidate ? accountName(candidate.destinationAccountId) : `${receiverAccounts.value.length || 2} settlement options`
+    }
+  }
+  return {
+    title: 'Payment execution',
+    body: latestPayment.value
+      ? `The gateway executed ${latestPayment.value.attempts.length} attempt${latestPayment.value.attempts.length === 1 ? '' : 's'} and returned ${latestPayment.value.status}.`
+      : 'Once a route is selected, PayFlow charges through the provider simulator and records the attempts.',
+    metric: latestPayment.value?.status ?? 'Ready'
+  }
 })
 
 async function loadAll() {
@@ -478,6 +594,10 @@ function setRoutingLens(lens: string) {
   statusMessage.value = `Scoring lens set to ${lens}. Now run Smart Route and explain how PayFlow still balances all route factors.`
 }
 
+function setActiveRoutingNode(id: RouteNodeId) {
+  activeRoutingNode.value = id
+}
+
 function nextSlide() {
   activeSlide.value = Math.min(activeSlide.value + 1, presenterSlides.length - 1)
 }
@@ -650,31 +770,42 @@ onMounted(() => {
               </article>
             </div>
 
-            <div v-if="activeSlide === 1" class="routing-flow" aria-label="Intelligent routing flow chart">
-              <article>
-                <span>1</span>
-                <strong>Customer funding accounts</strong>
-                <small>Telebirr, CBE, M-Pesa balance and eligibility</small>
-              </article>
-              <i></i>
-              <article>
-                <span>2</span>
-                <strong>AI scoring engine</strong>
-                <small>Health, success, cost, latency, source-destination affinity</small>
-              </article>
-              <i></i>
-              <article>
-                <span>3</span>
-                <strong>Ranked route providers</strong>
-                <small>Unavailable rails removed, best corridor selected</small>
-              </article>
-              <i></i>
-              <article>
-                <span>4</span>
-                <strong>Merchant settlement</strong>
-                <small>Smart settlement account chosen automatically</small>
-              </article>
-            </div>
+            <section v-if="activeSlide === 1" class="route-studio" aria-label="Interactive intelligent routing simulator">
+              <div class="route-map">
+                <button
+                  v-for="node in routingNodes"
+                  :key="node.id"
+                  class="route-map-node"
+                  :class="[node.status, { active: activeRoutingNode === node.id }]"
+                  @click="setActiveRoutingNode(node.id)"
+                >
+                  <span>{{ node.label }}</span>
+                  <strong>{{ node.title }}</strong>
+                  <small>{{ node.meta }}</small>
+                </button>
+              </div>
+
+              <div class="route-inspector">
+                <article class="route-detail">
+                  <span>Selected stage</span>
+                  <strong>{{ activeRoutingDetail.title }}</strong>
+                  <p>{{ activeRoutingDetail.body }}</p>
+                  <em>{{ activeRoutingDetail.metric }}</em>
+                </article>
+
+                <article class="weight-panel">
+                  <div>
+                    <span>Current scoring lens</span>
+                    <strong>{{ routingLens }}</strong>
+                  </div>
+                  <label v-for="weight in routingWeights" :key="weight[0]">
+                    {{ weight[0] }}
+                    <span><i :style="{ width: `${weight[1]}%` }"></i></span>
+                    <b>{{ weight[1] }}%</b>
+                  </label>
+                </article>
+              </div>
+            </section>
 
             <div class="stage-interaction">
               <div class="interaction-copy">
