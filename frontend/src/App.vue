@@ -76,6 +76,9 @@ const activeSlide = ref(0)
 const elapsedSeconds = ref(0)
 const timerRunning = ref(false)
 const timerHandle = ref<number | null>(null)
+const baselineRoute = ref('Not captured yet')
+const outageRoute = ref('Not captured yet')
+const routingLens = ref<'Balanced' | 'Approval' | 'Cost' | 'Latency'>('Balanced')
 
 const userForm = reactive({ name: '', phoneNumber: '', role: 'INDIVIDUAL' })
 const selectedAccountOwner = ref('')
@@ -359,6 +362,7 @@ async function runSmartRoute() {
     const reference = `BUNA-SMART-${Math.floor(Date.now() / 1000)}`
     paymentForm.merchantReference = reference
     await createPayment(reference)
+    baselineRoute.value = routeLabel(result.value)
     statusMessage.value = 'Smart route completed. The ranked corridor table now explains why the winning path was selected.'
   } finally {
     busy.value = false
@@ -374,7 +378,36 @@ async function simulateOutageAndReroute() {
     const reference = `BUNA-FAILOVER-${Math.floor(Date.now() / 1000)}`
     paymentForm.merchantReference = reference
     await createPayment(reference)
+    outageRoute.value = routeLabel(result.value)
     statusMessage.value = 'Outage scenario complete. The route engine excluded unavailable rails and retried eligible alternatives.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function takeProviderDownAndReroute(code: string) {
+  if (!paymentForm.senderId || !paymentForm.receiverId) await loadJudgeDemo()
+  if (!latestPayment.value) await runSmartRoute()
+  baselineRoute.value = routeLabel(latestPayment.value)
+  busy.value = true
+  statusMessage.value = `Taking ${code} down live, then rerouting the same merchant checkout through available rails...`
+  try {
+    await setProviderMode(code, 'UNAVAILABLE')
+    const reference = `BUNA-${code}-DOWN-${Math.floor(Date.now() / 1000)}`
+    paymentForm.merchantReference = reference
+    await createPayment(reference)
+    outageRoute.value = routeLabel(result.value)
+    statusMessage.value = `${code} is unavailable. PayFlow reranked the corridor and selected ${outageRoute.value}.`
+  } finally {
+    busy.value = false
+  }
+}
+
+async function setProviderStress(code: string, mode: string) {
+  busy.value = true
+  statusMessage.value = `Changing ${code} to ${mode}; watch the provider health and ranking evidence update.`
+  try {
+    await setProviderMode(code, mode)
   } finally {
     busy.value = false
   }
@@ -417,7 +450,15 @@ function toggleTimer() {
 function resetPresentation() {
   activeSlide.value = 0
   elapsedSeconds.value = 0
+  baselineRoute.value = 'Not captured yet'
+  outageRoute.value = 'Not captured yet'
+  routingLens.value = 'Balanced'
   statusMessage.value = 'Presenter mode reset. Start with the merchant pain, then load the live demo.'
+}
+
+function setRoutingLens(lens: string) {
+  routingLens.value = lens as typeof routingLens.value
+  statusMessage.value = `Scoring lens set to ${lens}. Now run Smart Route and explain how PayFlow still balances all route factors.`
 }
 
 function nextSlide() {
@@ -448,6 +489,13 @@ function formatMoney(value: number) {
 function accountName(id: string | null) {
   if (!id) return 'None'
   return [...senderAccounts.value, ...receiverAccounts.value].find((account) => account.id === id)?.accountAlias ?? id
+}
+
+function routeLabel(payment: Payment | null) {
+  const candidate = payment?.candidates.find((item) => item.selected)
+  if (candidate) return `${candidate.sourceProvider} → ${candidate.routeProvider} → ${candidate.destinationProvider}`
+  if (payment?.routeProvider) return `${payment.sourceAccountId ?? 'source'} → ${payment.routeProvider} → ${payment.destinationAccountId ?? 'destination'}`
+  return 'No route selected'
 }
 
 function providerModeClass(mode: string) {
@@ -576,6 +624,79 @@ onMounted(loadAll)
               </article>
             </div>
 
+            <div v-if="activeSlide === 1" class="routing-flow" aria-label="Intelligent routing flow chart">
+              <article>
+                <span>1</span>
+                <strong>Customer funding accounts</strong>
+                <small>Telebirr, CBE, M-Pesa balance and eligibility</small>
+              </article>
+              <i></i>
+              <article>
+                <span>2</span>
+                <strong>AI scoring engine</strong>
+                <small>Health, success, cost, latency, source-destination affinity</small>
+              </article>
+              <i></i>
+              <article>
+                <span>3</span>
+                <strong>Ranked route providers</strong>
+                <small>Unavailable rails removed, best corridor selected</small>
+              </article>
+              <i></i>
+              <article>
+                <span>4</span>
+                <strong>Merchant settlement</strong>
+                <small>Smart settlement account chosen automatically</small>
+              </article>
+            </div>
+
+            <div class="stage-interaction">
+              <div class="interaction-copy">
+                <span>Live interaction for this stage</span>
+                <strong v-if="activeSlide === 0">Create the exact customer, merchant, and linked rails the judges will watch.</strong>
+                <strong v-else-if="activeSlide === 1">Pick a scoring lens, run the route, then point at the flow chart and ranked corridor.</strong>
+                <strong v-else-if="activeSlide === 2">Choose any provider to take down live and compare route before versus after.</strong>
+                <strong v-else-if="activeSlide === 3">Stress a rail, restore it, and connect the controls to trust and compliance.</strong>
+                <strong v-else>Invite judges to choose the value lens, then close on measurable impact.</strong>
+              </div>
+
+              <div v-if="activeSlide === 0" class="interaction-controls">
+                <button class="primary" :disabled="busy" @click="loadJudgeDemo">Load users and accounts</button>
+                <button :disabled="busy" @click="restoreProviderHealth">Start all providers healthy</button>
+              </div>
+
+              <div v-else-if="activeSlide === 1" class="interaction-controls">
+                <button
+                  v-for="lens in ['Balanced', 'Approval', 'Cost', 'Latency']"
+                  :key="lens"
+                  :class="{ active: routingLens === lens }"
+                  @click="setRoutingLens(lens)"
+                >
+                  {{ lens }}
+                </button>
+                <button class="primary" :disabled="busy" @click="runSmartRoute">Score route</button>
+              </div>
+
+              <div v-else-if="activeSlide === 2" class="interaction-controls provider-breakers">
+                <button v-for="provider in providers" :key="provider.code" :disabled="busy" @click="takeProviderDownAndReroute(provider.code)">
+                  Take {{ provider.code }} down
+                </button>
+              </div>
+
+              <div v-else-if="activeSlide === 3" class="interaction-controls provider-breakers">
+                <button v-for="provider in providers" :key="provider.code" :disabled="busy" @click="setProviderStress(provider.code, 'UNSTABLE')">
+                  Stress {{ provider.code }}
+                </button>
+                <button class="primary" :disabled="busy" @click="restoreProviderHealth">Restore trust baseline</button>
+              </div>
+
+              <div v-else class="interaction-controls">
+                <button @click="statusMessage = 'Impact lens: merchants see fewer failed payments and less manual provider switching.'">Merchant value</button>
+                <button @click="statusMessage = 'Impact lens: banks, wallets, and gateways can expose smarter payment orchestration APIs.'">Ecosystem value</button>
+                <button class="primary" @click="statusMessage = 'Final close: PayFlow AI is the intelligence layer for resilient Ethiopian payment infrastructure.'">Final close</button>
+              </div>
+            </div>
+
             <div class="presenter-actions">
               <button @click="previousSlide" :disabled="activeSlide === 0">Previous</button>
               <button class="primary" :disabled="busy" @click="runPresenterAction">{{ currentSlide.actionLabel }}</button>
@@ -592,6 +713,12 @@ onMounted(loadAll)
                   <template v-else>Not scored yet</template>
                 </strong>
                 <small>{{ selectedCandidate ? `${Math.round(selectedCandidate.finalScore * 100)}/100 route score` : 'Run Smart Route during step 2.' }}</small>
+              </article>
+
+              <article class="evidence-card route-change-card">
+                <span>Route change</span>
+                <strong>{{ baselineRoute }}</strong>
+                <small>After outage: {{ outageRoute }}</small>
               </article>
 
               <article class="evidence-card">
