@@ -63,6 +63,7 @@ type Payment = {
   createdAt: string
 }
 type RouteNodeId = 'source' | 'scoring' | 'ranking' | 'settlement' | 'execution'
+type RoutingLens = 'Balanced' | 'Approval' | 'Cost' | 'Latency'
 
 const users = ref<User[]>([])
 const providers = ref<Provider[]>([])
@@ -79,9 +80,38 @@ const timerRunning = ref(false)
 const timerHandle = ref<number | null>(null)
 const baselineRoute = ref('Not captured yet')
 const outageRoute = ref('Not captured yet')
-const routingLens = ref<'Balanced' | 'Approval' | 'Cost' | 'Latency'>('Balanced')
+const routingLens = ref<RoutingLens>('Balanced')
 const activeRoutingNode = ref<RouteNodeId>('scoring')
 const isFullscreen = ref(false)
+const demoScenarios = [
+  {
+    id: 'coffee',
+    label: 'Coffee rush',
+    referencePrefix: 'BUNA',
+    amount: 2500,
+    headline: 'Busy merchant checkout with instant receipt pressure',
+    body: 'Aster Buna needs the payment accepted quickly without asking the customer to manually switch rails.'
+  },
+  {
+    id: 'school',
+    label: 'School fee',
+    referencePrefix: 'SCHOOL',
+    amount: 18500,
+    headline: 'Higher-value payment where approval confidence matters most',
+    body: 'The gateway should favor resilient rails and verified accounts before optimizing for fee or speed.'
+  },
+  {
+    id: 'utility',
+    label: 'Utility bill',
+    referencePrefix: 'UTILITY',
+    amount: 780,
+    headline: 'Low-margin recurring bill where cost sensitivity matters',
+    body: 'The merchant wants lower routing cost while still preserving reliable confirmation.'
+  }
+] as const
+type DemoScenarioId = (typeof demoScenarios)[number]['id']
+const activeScenarioId = ref<DemoScenarioId>('coffee')
+const routingLensOptions = ['Balanced', 'Approval', 'Cost', 'Latency'] as const
 
 const userForm = reactive({ name: '', phoneNumber: '', role: 'INDIVIDUAL' })
 const selectedAccountOwner = ref('')
@@ -131,6 +161,7 @@ const averageLatency = computed(() => {
   return Math.round(attempts.reduce((sum, attempt) => sum + attempt.latencyMs, 0) / attempts.length)
 })
 const activeOutages = computed(() => providers.value.filter((provider) => provider.mode !== 'HEALTHY').length)
+const activeScenario = computed(() => demoScenarios.find((scenario) => scenario.id === activeScenarioId.value) ?? demoScenarios[0])
 const impactCards = computed(() => [
   {
     label: 'Approval lift',
@@ -274,9 +305,74 @@ const routingWeights = computed(() => {
       ['Latency', 34],
       ['Affinity', 6]
     ]
-  } satisfies Record<typeof routingLens.value, Array<[string, number]>>
+  } satisfies Record<RoutingLens, Array<[string, number]>>
   return presets[routingLens.value]
 })
+const decisionBrief = computed(() => {
+  const candidate = selectedCandidate.value
+  const route = candidate
+    ? `${candidate.sourceProvider} -> ${candidate.routeProvider} -> ${candidate.destinationProvider}`
+    : 'Waiting for the first scored route'
+  const routeScore = candidate ? `${Math.round(candidate.finalScore * 100)}/100` : 'Ready'
+  const approval = candidate ? `${Math.round(candidate.successProbability * 100)}%` : `${providerHealth.value}% network`
+  const lensCopy: Record<RoutingLens, string> = {
+    Balanced: 'Balances approval, provider health, fees, latency, and account fit before it commits the payment.',
+    Approval: 'Prioritizes the path most likely to succeed, then checks cost and latency as guardrails.',
+    Cost: 'Looks for a lower-cost corridor without sending the merchant into a weak or unavailable rail.',
+    Latency: 'Pushes the fastest healthy route while keeping success probability above the trust threshold.'
+  }
+
+  return {
+    headline: activeScenario.value.headline,
+    body: `${activeScenario.value.body} ${lensCopy[routingLens.value]} Current decision: ${route}.`,
+    routeScore,
+    approval,
+    confidence: activeOutages.value ? 'Adaptive failover active' : 'Healthy routing baseline',
+    risk: activeOutages.value ? `${activeOutages.value} rail issue${activeOutages.value === 1 ? '' : 's'} detected` : 'No rail issues detected'
+  }
+})
+const providerDecisionSignals = computed(() => providers.value.map((provider) => {
+  const selected = selectedCandidate.value?.routeProvider === provider.code
+  const health = scoreToPercent(provider.healthScore)
+  const reliability = scoreToPercent(provider.successRate)
+  return {
+    code: provider.code,
+    name: provider.name,
+    mode: provider.mode,
+    selected,
+    health,
+    reliability,
+    latency: provider.latencyMs,
+    score: Math.round((health * 0.38) + (reliability * 0.42) + (scoreToPercent(provider.costScore) * 0.12) + (scoreToPercent(provider.latencyScore) * 0.08)),
+    reason: selected ? 'Chosen route' : provider.mode === 'HEALTHY' ? 'Eligible route' : 'Excluded until healthy'
+  }
+}))
+const decisionTimeline = computed(() => [
+  {
+    label: 'Intent',
+    value: routingLens.value,
+    detail: activeScenario.value.label,
+    state: 'selected'
+  },
+  {
+    label: 'Eligibility',
+    value: `${senderAccounts.value.length || 0} funding / ${receiverAccounts.value.length || 0} settlement`,
+    detail: 'Verified accounts and Smart Pay flags',
+    state: senderAccounts.value.length && receiverAccounts.value.length ? 'selected' : 'ready'
+  },
+  {
+    label: 'Network',
+    value: activeOutages.value ? `${activeOutages.value} issue` : 'Healthy',
+    detail: 'Provider health gate before ranking',
+    state: activeOutages.value ? 'warning' : 'selected'
+  },
+  {
+    label: 'Decision',
+    value: selectedCandidate.value ? `${Math.round(selectedCandidate.value.finalScore * 100)}/100` : 'Not scored',
+    detail: selectedCandidate.value?.explanation ?? 'Run Smart Route to produce ranked evidence',
+    state: selectedCandidate.value ? 'selected' : 'ready'
+  }
+])
 const activeRoutingDetail = computed(() => {
   const candidate = selectedCandidate.value
   if (activeRoutingNode.value === 'source') {
@@ -457,8 +553,8 @@ async function loadJudgeDemo() {
 
     paymentForm.senderId = customer.id
     paymentForm.receiverId = merchant.id
-    paymentForm.merchantReference = `BUNA-ORDER-${Math.floor(Date.now() / 1000)}`
-    paymentForm.amount = 2500
+    paymentForm.merchantReference = `${activeScenario.value.referencePrefix}-ORDER-${Math.floor(Date.now() / 1000)}`
+    paymentForm.amount = activeScenario.value.amount
     paymentForm.currency = 'ETB'
     paymentForm.smartPay = true
     paymentForm.smartSettlement = true
@@ -476,7 +572,8 @@ async function runSmartRoute() {
   busy.value = true
   statusMessage.value = 'Scoring source accounts, payment rails, destination accounts, provider health, cost, and latency...'
   try {
-    const reference = `BUNA-SMART-${Math.floor(Date.now() / 1000)}`
+    paymentForm.amount = activeScenario.value.amount
+    const reference = `${activeScenario.value.referencePrefix}-SMART-${Math.floor(Date.now() / 1000)}`
     paymentForm.merchantReference = reference
     await createPayment(reference)
     baselineRoute.value = routeLabel(result.value)
@@ -492,7 +589,8 @@ async function simulateOutageAndReroute() {
   statusMessage.value = 'Simulating a provider outage, then rerunning the transaction through the failover engine...'
   try {
     await setProviderMode('ROUTE_A', 'UNAVAILABLE')
-    const reference = `BUNA-FAILOVER-${Math.floor(Date.now() / 1000)}`
+    paymentForm.amount = activeScenario.value.amount
+    const reference = `${activeScenario.value.referencePrefix}-FAILOVER-${Math.floor(Date.now() / 1000)}`
     paymentForm.merchantReference = reference
     await createPayment(reference)
     outageRoute.value = routeLabel(result.value)
@@ -510,7 +608,8 @@ async function takeProviderDownAndReroute(code: string) {
   statusMessage.value = `Taking ${code} down live, then rerouting the same merchant checkout through available rails...`
   try {
     await setProviderMode(code, 'UNAVAILABLE')
-    const reference = `BUNA-${code}-DOWN-${Math.floor(Date.now() / 1000)}`
+    paymentForm.amount = activeScenario.value.amount
+    const reference = `${activeScenario.value.referencePrefix}-${code}-DOWN-${Math.floor(Date.now() / 1000)}`
     paymentForm.merchantReference = reference
     await createPayment(reference)
     outageRoute.value = routeLabel(result.value)
@@ -589,9 +688,16 @@ function resetPresentation() {
   statusMessage.value = 'Presenter mode reset. Start with the merchant pain, then load the live demo.'
 }
 
-function setRoutingLens(lens: string) {
-  routingLens.value = lens as typeof routingLens.value
+function setRoutingLens(lens: RoutingLens) {
+  routingLens.value = lens
   statusMessage.value = `Scoring lens set to ${lens}. Now run Smart Route and explain how PayFlow still balances all route factors.`
+}
+
+function setDemoScenario(id: DemoScenarioId) {
+  activeScenarioId.value = id
+  paymentForm.amount = activeScenario.value.amount
+  paymentForm.merchantReference = `${activeScenario.value.referencePrefix}-ORDER-${Math.floor(Date.now() / 1000)}`
+  statusMessage.value = `${activeScenario.value.label} selected. PayFlow will route ETB ${formatMoney(activeScenario.value.amount)} with the ${routingLens.value} objective.`
 }
 
 function setActiveRoutingNode(id: RouteNodeId) {
@@ -617,6 +723,10 @@ async function runPresenterAction() {
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`
+}
+
+function scoreToPercent(value: number) {
+  return Math.round(value <= 1 ? value * 100 : value)
 }
 
 function formatMoney(value: number) {
@@ -760,6 +870,136 @@ onMounted(() => {
               <strong>{{ statusMessage }}</strong>
             </div>
 
+            <section class="intelligence-console" aria-label="Intelligent payment gateway control plane">
+              <div class="decision-brief">
+                <div>
+                  <p class="eyebrow">AI gateway control plane</p>
+                  <h3>{{ decisionBrief.headline }}</h3>
+                  <p>{{ decisionBrief.body }}</p>
+                </div>
+                <div class="decision-metrics">
+                  <article>
+                    <span>Route score</span>
+                    <strong>{{ decisionBrief.routeScore }}</strong>
+                  </article>
+                  <article>
+                    <span>Approval signal</span>
+                    <strong>{{ decisionBrief.approval }}</strong>
+                  </article>
+                  <article>
+                    <span>Network state</span>
+                    <strong>{{ decisionBrief.risk }}</strong>
+                  </article>
+                </div>
+              </div>
+
+              <div class="control-plane">
+                <div class="control-group scenario-control">
+                  <span>Judge scenario</span>
+                  <button
+                    v-for="scenario in demoScenarios"
+                    :key="scenario.id"
+                    :class="{ active: activeScenarioId === scenario.id }"
+                    @click="setDemoScenario(scenario.id)"
+                  >
+                    <strong>{{ scenario.label }}</strong>
+                    <small>ETB {{ formatMoney(scenario.amount) }}</small>
+                  </button>
+                </div>
+
+                <div class="control-group objective-control">
+                  <span>Business objective</span>
+                  <button
+                    v-for="lens in routingLensOptions"
+                    :key="lens"
+                    :class="{ active: routingLens === lens }"
+                    @click="setRoutingLens(lens)"
+                  >
+                    {{ lens }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="decision-workbench">
+                <section class="rail-network" aria-label="Live payment rail controls">
+                  <div class="workbench-heading">
+                    <span>Live rail network</span>
+                    <strong>{{ decisionBrief.confidence }}</strong>
+                  </div>
+
+                  <article v-for="signal in providerDecisionSignals" :key="signal.code" class="rail-signal" :class="[signal.mode.toLowerCase(), { selected: signal.selected }]">
+                    <div>
+                      <span>{{ signal.code }}</span>
+                      <strong>{{ signal.name }}</strong>
+                      <small>{{ signal.reason }}</small>
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>Health</dt>
+                        <dd>{{ signal.health }}%</dd>
+                      </div>
+                      <div>
+                        <dt>Latency</dt>
+                        <dd>{{ signal.latency }} ms</dd>
+                      </div>
+                      <div>
+                        <dt>AI score</dt>
+                        <dd>{{ signal.score }}</dd>
+                      </div>
+                    </dl>
+                    <button class="small" :disabled="busy" @click="takeProviderDownAndReroute(signal.code)">Take down</button>
+                  </article>
+                </section>
+
+                <section class="decision-path" aria-label="Explainable route decision path">
+                  <div class="workbench-heading">
+                    <span>Explainable decision path</span>
+                    <strong>{{ selectedCandidate ? 'Route committed' : 'Awaiting score' }}</strong>
+                  </div>
+
+                  <button
+                    v-for="node in routingNodes"
+                    :key="node.id"
+                    class="decision-step"
+                    :class="[node.status, { active: activeRoutingNode === node.id }]"
+                    @click="setActiveRoutingNode(node.id)"
+                  >
+                    <span>{{ node.label }}</span>
+                    <strong>{{ node.title }}</strong>
+                    <small>{{ node.meta }}</small>
+                  </button>
+                </section>
+
+                <section class="decision-explain" aria-label="Route intelligence explanation">
+                  <div class="workbench-heading">
+                    <span>Why the gateway chose this</span>
+                    <strong>{{ activeRoutingDetail.metric }}</strong>
+                  </div>
+
+                  <article class="active-rationale">
+                    <strong>{{ activeRoutingDetail.title }}</strong>
+                    <p>{{ activeRoutingDetail.body }}</p>
+                  </article>
+
+                  <div class="timeline-stack">
+                    <article v-for="item in decisionTimeline" :key="item.label" :class="item.state">
+                      <span>{{ item.label }}</span>
+                      <strong>{{ item.value }}</strong>
+                      <small>{{ item.detail }}</small>
+                    </article>
+                  </div>
+
+                  <article class="weight-panel compact">
+                    <label v-for="weight in routingWeights" :key="weight[0]">
+                      {{ weight[0] }}
+                      <span><i :style="{ width: `${weight[1]}%` }"></i></span>
+                      <b>{{ weight[1] }}%</b>
+                    </label>
+                  </article>
+                </section>
+              </div>
+            </section>
+
             <div class="talk-track">
               <article>
                 <span>Ask the judges</span>
@@ -775,48 +1015,11 @@ onMounted(() => {
               </article>
             </div>
 
-            <section v-if="activeSlide === 1" class="route-studio" aria-label="Interactive intelligent routing simulator">
-              <div class="route-map">
-                <button
-                  v-for="node in routingNodes"
-                  :key="node.id"
-                  class="route-map-node"
-                  :class="[node.status, { active: activeRoutingNode === node.id }]"
-                  @click="setActiveRoutingNode(node.id)"
-                >
-                  <span>{{ node.label }}</span>
-                  <strong>{{ node.title }}</strong>
-                  <small>{{ node.meta }}</small>
-                </button>
-              </div>
-
-              <div class="route-inspector">
-                <article class="route-detail">
-                  <span>Selected stage</span>
-                  <strong>{{ activeRoutingDetail.title }}</strong>
-                  <p>{{ activeRoutingDetail.body }}</p>
-                  <em>{{ activeRoutingDetail.metric }}</em>
-                </article>
-
-                <article class="weight-panel">
-                  <div>
-                    <span>Current scoring lens</span>
-                    <strong>{{ routingLens }}</strong>
-                  </div>
-                  <label v-for="weight in routingWeights" :key="weight[0]">
-                    {{ weight[0] }}
-                    <span><i :style="{ width: `${weight[1]}%` }"></i></span>
-                    <b>{{ weight[1] }}%</b>
-                  </label>
-                </article>
-              </div>
-            </section>
-
             <div class="stage-interaction">
               <div class="interaction-copy">
                 <span>Live interaction for this stage</span>
                 <strong v-if="activeSlide === 0">Create the exact customer, merchant, and linked rails the judges will watch.</strong>
-                <strong v-else-if="activeSlide === 1">Pick a scoring lens, run the route, then point at the flow chart and ranked corridor.</strong>
+                <strong v-else-if="activeSlide === 1">Let judges choose a business objective, run the route, and show the AI rationale change.</strong>
                 <strong v-else-if="activeSlide === 2">Choose any provider to take down live and compare route before versus after.</strong>
                 <strong v-else-if="activeSlide === 3">Stress a rail, restore it, and connect the controls to trust and compliance.</strong>
                 <strong v-else>Invite judges to choose the value lens, then close on measurable impact.</strong>
@@ -829,7 +1032,7 @@ onMounted(() => {
 
               <div v-else-if="activeSlide === 1" class="interaction-controls">
                 <button
-                  v-for="lens in ['Balanced', 'Approval', 'Cost', 'Latency']"
+                  v-for="lens in routingLensOptions"
                   :key="lens"
                   :class="{ active: routingLens === lens }"
                   @click="setRoutingLens(lens)"

@@ -160,6 +160,14 @@ h2 {
   font-size: 1.08rem;
 }
 
+h3 {
+  margin: 0;
+  color: #101827;
+  font-size: clamp(1.25rem, 2vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
 .hero-copy {
   max-width: 760px;
   margin: 18px 0 0;
@@ -401,6 +409,12 @@ main {
 .timer-card span,
 .slide-count,
 .presenter-status span,
+.decision-metrics span,
+.control-group > span,
+.workbench-heading span,
+.rail-signal span,
+.active-rationale span,
+.timeline-stack span,
 .evidence-card span,
 .talk-track span,
 .interaction-copy span,
@@ -522,6 +536,340 @@ main {
 
 .app-shell.presenter-fullscreen .presenter-status strong {
   font-size: 1.12rem;
+}
+
+.intelligence-console {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid #cbd9e8;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(9, 61, 96, 0.06), rgba(15, 118, 110, 0.08) 52%, rgba(234, 179, 8, 0.09)),
+    #ffffff;
+  padding: 12px;
+}
+
+.decision-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.decision-brief p {
+  margin: 8px 0 0;
+  color: #3b4a60;
+  line-height: 1.48;
+}
+
+.decision-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.decision-metrics article {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-height: 78px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+}
+
+.decision-metrics strong {
+  color: #0f766e;
+  font-size: 1rem;
+  line-height: 1.22;
+}
+
+.control-plane {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 10px;
+}
+
+.control-group {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: rgba(248, 251, 253, 0.9);
+  padding: 10px;
+}
+
+.scenario-control {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.scenario-control > span,
+.objective-control > span {
+  grid-column: 1 / -1;
+}
+
+.scenario-control button {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 66px;
+  padding: 9px;
+  text-align: left;
+}
+
+.scenario-control small {
+  color: #667085;
+  font-weight: 750;
+}
+
+.objective-control {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.objective-control button {
+  min-height: 66px;
+}
+
+.scenario-control button.active,
+.objective-control button.active {
+  border-color: #0f766e;
+  background: #e6f4ef;
+  color: #047857;
+}
+
+.decision-workbench {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 0.95fr) minmax(320px, 0.95fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.rail-network,
+.decision-path,
+.decision-explain {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 320px;
+  border: 1px solid #d7e1ed;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 10px;
+}
+
+.workbench-heading {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e3e9f2;
+}
+
+.workbench-heading strong {
+  color: #14213d;
+  font-size: 1rem;
+  line-height: 1.24;
+}
+
+.rail-signal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.72fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #d9e1ec;
+  border-left: 5px solid #9aa9bd;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.rail-signal.selected {
+  border-left-color: #0f766e;
+  background: #f0fbf7;
+}
+
+.rail-signal.unavailable,
+.rail-signal.unstable {
+  border-left-color: #b42318;
+  background: #fff8f6;
+}
+
+.rail-signal strong {
+  display: block;
+  color: #172033;
+  line-height: 1.2;
+}
+
+.rail-signal small {
+  color: #667085;
+}
+
+.rail-signal dl {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.rail-signal dl div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.rail-signal dt,
+.rail-signal dd {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.rail-signal dd {
+  color: #172033;
+  font-weight: 850;
+}
+
+.decision-path {
+  grid-template-columns: 1fr;
+}
+
+.decision-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+  min-height: 58px;
+  border-color: #d9e1ec;
+  background: #ffffff;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.decision-step::before {
+  content: "";
+  position: absolute;
+  left: 28px;
+  top: -11px;
+  width: 2px;
+  height: 10px;
+  background: #c7d2df;
+}
+
+.decision-step:first-of-type::before {
+  display: none;
+}
+
+.decision-step span {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  border-radius: 6px;
+  background: #eef2f8;
+  color: #475467;
+  font-size: 0.73rem;
+  font-weight: 850;
+}
+
+.decision-step strong {
+  color: #172033;
+  line-height: 1.18;
+}
+
+.decision-step small {
+  color: #667085;
+  line-height: 1.25;
+}
+
+.decision-step.active,
+.decision-step.selected {
+  border-color: #0f766e;
+  background: #f0fbf7;
+}
+
+.decision-step.warning {
+  border-color: #f0b7ae;
+  background: #fff8f6;
+}
+
+.decision-step.active span {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.active-rationale {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 11px;
+}
+
+.active-rationale strong {
+  color: #14213d;
+  font-size: 1.12rem;
+}
+
+.active-rationale p {
+  margin: 0;
+  color: #344054;
+  line-height: 1.45;
+}
+
+.timeline-stack {
+  display: grid;
+  gap: 7px;
+}
+
+.timeline-stack article {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.timeline-stack article.selected {
+  border-color: #b8dfd3;
+  background: #f0fbf7;
+}
+
+.timeline-stack article.warning {
+  border-color: #f0b7ae;
+  background: #fff8f6;
+}
+
+.timeline-stack strong {
+  color: #172033;
+  line-height: 1.2;
+}
+
+.timeline-stack small {
+  color: #667085;
+  line-height: 1.3;
+}
+
+.weight-panel.compact {
+  padding: 10px;
+}
+
+.app-shell.presenter-fullscreen .intelligence-console {
+  gap: 14px;
+}
+
+.app-shell.presenter-fullscreen .decision-workbench {
+  grid-template-columns: minmax(300px, 0.82fr) minmax(360px, 0.9fr) minmax(400px, 1fr);
+}
+
+.app-shell.presenter-fullscreen .rail-network,
+.app-shell.presenter-fullscreen .decision-path,
+.app-shell.presenter-fullscreen .decision-explain {
+  min-height: 360px;
 }
 
 .talk-track {
@@ -1165,6 +1513,22 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .decision-brief,
+  .control-plane,
+  .decision-workbench,
+  .app-shell.presenter-fullscreen .decision-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .rail-network,
+  .decision-path,
+  .decision-explain,
+  .app-shell.presenter-fullscreen .rail-network,
+  .app-shell.presenter-fullscreen .decision-path,
+  .app-shell.presenter-fullscreen .decision-explain {
+    min-height: auto;
+  }
+
   .route-map,
   .route-inspector {
     grid-template-columns: 1fr;
@@ -1204,6 +1568,11 @@ pre {
   .status-strip,
   .winner,
   .rank-row,
+  .decision-metrics,
+  .scenario-control,
+  .objective-control,
+  .rail-signal,
+  .timeline-stack article,
   .provider-grid,
   .impact-grid,
   .form-grid,
