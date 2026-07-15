@@ -1,0 +1,20 @@
+package com.kifiya.payflow.model;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+public record SmartPayment(
+    String id,
+    String merchantReference,
+    BigDecimal amount,
+    String currency,
+    String senderId,
+    String receiverId,
+    String sourceAccountId,
+    String destinationAccountId,
+    String routeProvider,
+    PaymentStatus status,
+    String idempotencyKey,
+    List<PaymentAttempt> attempts,
+    List<CorridorCandidate> candidates,
+    Instant createdAt
+) {}
