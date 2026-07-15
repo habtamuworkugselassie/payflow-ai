@@ -755,6 +755,11 @@ onMounted(() => {
               <span class="slide-count">Step {{ activeSlide + 1 }} / {{ presenterSlides.length }}</span>
             </div>
 
+            <div class="presenter-status" role="status" aria-live="polite">
+              <span>Live demo state</span>
+              <strong>{{ statusMessage }}</strong>
+            </div>
+
             <div class="talk-track">
               <article>
                 <span>Ask the judges</span>

@@ -400,6 +400,7 @@ main {
 
 .timer-card span,
 .slide-count,
+.presenter-status span,
 .evidence-card span,
 .talk-track span,
 .interaction-copy span,
@@ -493,6 +494,34 @@ main {
   background: #eef2f8;
   padding: 0 11px;
   font-weight: 850;
+}
+
+.presenter-status {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  border-left: 5px solid #0f766e;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(15, 118, 110, 0.1), rgba(234, 179, 8, 0.08)),
+    #ffffff;
+  padding: 12px 14px;
+}
+
+.presenter-status strong {
+  color: #14213d;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.app-shell.presenter-fullscreen .presenter-status {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.app-shell.presenter-fullscreen .presenter-status strong {
+  font-size: 1.12rem;
 }
 
 .talk-track {
