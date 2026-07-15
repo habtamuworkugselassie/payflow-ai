@@ -1,0 +1,70 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+header {
+  background: #111827;
+  color: white;
+  padding: 28px;
+}
+main {
+  max-width: 1180px;
+  margin: auto;
+  padding: 24px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+  gap: 16px;
+}
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+input, select, button {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+button {
+  background: #111827;
+  color: white;
+  cursor: pointer;
+}
+label {
+  display: block;
+  margin: 8px 0;
+}
+label input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+.provider-row, .payment-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+.payment-row {
+  grid-template-columns: 1fr auto auto auto;
+}
+.ok { color: #047857; font-weight: bold; }
+.bad { color: #b91c1c; font-weight: bold; }
+pre {
+  overflow: auto;
+  max-height: 420px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 14px;
+  border-radius: 8px;
+}

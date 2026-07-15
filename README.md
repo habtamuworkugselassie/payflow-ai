@@ -29,6 +29,65 @@ PayFlow AI provides an intelligent payment gateway layer that predicts the best 
 - **Risk-aware decisions:** Uses fraud and anomaly signals to avoid risky routes or trigger additional verification.
 - **API-first integration:** Exposes developer-friendly APIs for authorization, capture, refund, reconciliation, and route simulation.
 
+## Full Demo
+
+This repository includes a corrected full-stack demo with:
+
+- Real Vue 3 + TypeScript frontend.
+- API-driven user creation.
+- API-driven provider-account linking.
+- Sender and receiver support for multiple linked accounts.
+- Smart Pay and Smart Settlement flows.
+- Source, route, and destination corridor ranking.
+- Provider failover simulation.
+- In-memory storage for hackathon demo simplicity.
+
+## Run
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+Backend API:
+
+```text
+http://localhost:8080
+```
+
+## Main APIs
+
+Create user:
+
+```http
+POST /api/v1/users
+```
+
+Link provider account:
+
+```http
+POST /api/v1/users/{userId}/accounts
+```
+
+List user accounts:
+
+```http
+GET /api/v1/users/{userId}/accounts
+```
+
+Create smart payment:
+
+```http
+POST /api/v1/payments
+```
+
+The source owner and destination owner can each register and link multiple provider accounts using the API or Vue UI.
+
 ## Business Impact
 
 PayFlow AI helps merchants and payment infrastructure providers:
