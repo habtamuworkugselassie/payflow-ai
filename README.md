@@ -45,8 +45,18 @@ This repository includes a corrected full-stack demo with:
 ## Run
 
 ```bash
+docker compose build
+```
+
+```bash
 docker compose up --build
 ```
+
+If Docker fails with `failed to fetch oauth token` or `lookup auth.docker.io: i/o timeout`,
+Docker Desktop cannot reach Docker Hub from the current network. Restart Docker Desktop,
+check VPN/proxy/DNS settings, then retry the same command. The project also includes
+`.dockerignore` files so local folders such as `node_modules` and `target` are not sent
+into Docker during rebuilds.
 
 Open:
 
